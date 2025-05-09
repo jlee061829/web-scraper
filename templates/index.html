@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Baltimore Banner Analyzer</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Baltimore Banner Article Analyzer</h1>
+        <p>Enter a Baltimore Banner article URL to get its stats.</p>
+      </header>
+
+      <form method="POST" action="/">
+        <input
+          type="url"
+          name="article_url"
+          placeholder="https://www.thebaltimorebanner.com/your-article-here"
+          required
+          value="{{ article_url if article_url else '' }}"
+        />
+        <button type="submit">Analyze Article</button>
+      </form>
+
+      {% if error %}
+      <div class="error-message">
+        <p>{{ error }}</p>
+      </div>
+      {% endif %} {% if data %}
+      <section class="results">
+        <h2>Analysis Results</h2>
+        <div class="result-grid">
+          <div class="result-item">
+            <h3>Headline</h3>
+            <p class="headline-text">"{{ data.headline }}"</p>
+          </div>
+          <div class="result-item">
+            <h3>Headline Words</h3>
+            <p class="count">{{ data.headline_word_count }}</p>
+          </div>
+          <div class="result-item">
+            <h3>Date Posted</h3>
+            <p>{{ data.date_posted }}</p>
+          </div>
+          <div class="result-item">
+            <h3>Article Word Count</h3>
+            <p class="count">{{ data.article_word_count }}</p>
+          </div>
+          <div class="result-item">
+            <h3>Number of Images</h3>
+            <p class="count">{{ data.image_count }}</p>
+          </div>
+        </div>
+
+        {% if data.images %}
+        <div class="image-gallery">
+          <h3>Article Images:</h3>
+          <div class="gallery-grid">
+            {% for image in data.images %}
+            <div class="gallery-item">
+              <img
+                src="{{ image.src }}"
+                alt="{{ image.alt if image.alt else 'Article Image' }}"
+              />
+              <p class="image-caption">
+                {{ image.alt if image.alt else 'No caption' }}
+              </p>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% elif data.image_count == 0 %}
+        <div class="image-gallery">
+          <h3>Article Images:</h3>
+          <p>No images found in the article body.</p>
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
+    </div>
+    <footer>
+      <p>Baltimore Banner Analyzer © 2023</p>
+    </footer>
+  </body>
+</html>
