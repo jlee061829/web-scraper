@@ -39,7 +39,7 @@ def parse_banner_date(date_text):
     return date_text
 
 
-_driver_instance = None # Global-like variable to hold the driver instance for the app's lifetime
+_driver_instance = None # vraible to hoold website driver instance
 
 def get_or_create_driver(headless=False, force_recreate=False):
     """
@@ -66,13 +66,13 @@ def get_or_create_driver(headless=False, force_recreate=False):
             _driver_instance = webdriver.Chrome(service=service, options=chrome_options)
             print("Selenium WebDriver initialized.")
 
-            if not headless: # Only prompt for login if browser is visible
+            if not headless: # only prompt for login if browser is visible
                 print("Navigating to Baltimore Banner for potential login...")
                 _driver_instance.get("https://www.thebaltimorebanner.com/")
                 try:
-                    _driver_instance.find_element(webdriver.common.by.By.CSS_SELECTOR, 'button[aria-label*="Account"]') # Example
+                    _driver_instance.find_element(webdriver.common.by.By.CSS_SELECTOR, 'button[aria-label*="Account"]') # ex
                     print("It seems you might already be logged in (found account button).")
-                except: # If not found, assume not logged in
+                except: # not logged in if not found
                     print("MANUAL STEP REQUIRED:")
                     print("A Chrome browser window (controlled by Selenium) has opened.")
                     print("Please log in to The Baltimore Banner in that window.")
@@ -81,7 +81,7 @@ def get_or_create_driver(headless=False, force_recreate=False):
 
         except Exception as e:
             print(f"Error initializing WebDriver: {e}")
-            _driver_instance = None # Ensure it's None if init failed
+            _driver_instance = None # none if init failed
             raise
     return _driver_instance
 
@@ -105,23 +105,22 @@ def scrape_article_data(article_url):
     except Exception as e:
         return {"error": f"Could not get Selenium WebDriver: {str(e)}"}
 
-    if not driver: # Should not happen if exception is raised properly
+    if not driver:
          return {"error": "WebDriver instance is not available."}
 
     try:
         print(f"Navigating to article: {article_url}")
         driver.get(article_url)
-        time.sleep(5) # Wait for dynamic content, paywall checks, JS rendering
+        time.sleep(5) # pause to wait for pay wall, js reading, etc
         page_source = driver.page_source
     except Exception as e:
-        # Don't close the shared driver here on a per-article error
         return {"error": f"Selenium could not load the article URL. Error: {e}"}
-
-    # --- BeautifulSoup Parsing Logic (largely unchanged) ---
+    
+    # beautful soup implementation
     soup = BeautifulSoup(page_source, 'html.parser')
     data = {'url': article_url}
 
-    # 1. Headline
+    # headline
     headline_tag = soup.select_one('h1.font-bold, h1[class*="headline"], header h1, h1[data-qa="Heading"]')
     if not headline_tag: headline_tag = soup.find('h1')
     if headline_tag:
@@ -132,10 +131,8 @@ def scrape_article_data(article_url):
         data['headline'] = "N/A - Headline not found"
         data['headline_word_count'] = 0
 
-    # 2. Date Posted
+    # date posted
     data['date_posted'] = "N/A - Date not found"
-    # Strategy: Look for <time datetime="..."> first.
-    # Then look for specific patterns in the byline area.
     time_tag_dt = soup.find('time', attrs={'datetime': True})
     if time_tag_dt and time_tag_dt.get('datetime'):
         try:
@@ -172,29 +169,29 @@ def scrape_article_data(article_url):
                         break
 
 
-    # 3. Article Word Count
+    # word count
     article_text_content = ""
     text_extraction_block = None
-    # Selectors ordered from most likely/specific to more general
+
     article_body_selectors = [
         'div.rich-text__content',
         'div.rich-text--article-body',
         'div[data-qa="ArticleBody"]',
-        'section[data-qa="ArticleBody"]', # Some sites use section
+        'section[data-qa="ArticleBody"]',
         'div[class*="article-body"]',
         'div[class*="ArticlePage-articleBody"]',
         'article[class*="ArticlePage"] div[class*="body"]',
-        'article .entry-content', # Common WordPress class
-        'article' # Broadest fallback
+        'article .entry-content',
+        'article'
     ]
     for selector in article_body_selectors:
         block = soup.select_one(selector)
         if block:
-            # Filter out known non-content blocks if using a broad selector like 'article'
+            # filter out known non-content blocks if using a broad selector like 'article'
             if selector == 'article':
                 for non_content_selector in ['header', 'footer', '.related-articles', '.comments']:
                     for el in block.select(non_content_selector):
-                        el.decompose() # Remove these parts before getting text
+                        el.decompose() # remove these parts before getting text
 
             temp_text = block.get_text(separator=' ', strip=True)
             if count_words(temp_text) > 50: # Require a reasonable amount of text
@@ -204,7 +201,7 @@ def scrape_article_data(article_url):
                 break
     data['article_word_count'] = count_words(article_text_content)
 
-    # 4. Images and Number of Images (search within the identified text_extraction_block or fallback to soup)
+    # images and number of images
     images = []
     found_image_srcs = set()
     search_context_for_images = text_extraction_block if text_extraction_block and data['article_word_count'] > 0 else soup
@@ -214,9 +211,9 @@ def scrape_article_data(article_url):
         for fig in figure_tags:
             img_tag = fig.find('img')
             if img_tag:
-                src = img_tag.get('src') or img_tag.get('data-src') # Check data-src for lazy loading
+                src = img_tag.get('src') or img_tag.get('data-src') # check data-src for lazy loading
                 if src and src.startswith('http') and src not in found_image_srcs:
-                    # Attempt to get a more meaningful alt text from figcaption if img alt is poor
+                    # attempt to get a more meaningful alt text from figcaption if img alt is poor
                     alt_text = img_tag.get('alt', '')
                     figcaption_tag = fig.find('figcaption')
                     caption_text = figcaption_tag.get_text(strip=True) if figcaption_tag else ''
@@ -230,8 +227,7 @@ def scrape_article_data(article_url):
                     images.append({'src': src, 'alt': final_alt if final_alt else "Article Image"})
                     found_image_srcs.add(src)
         
-        # Fallback for images not in figures, but still within the article body
-        if not images and text_extraction_block: # Only if no images found in figures and we have a body
+        if not images and text_extraction_block:
             direct_img_tags = text_extraction_block.find_all('img')
             for img_tag in direct_img_tags:
                 src = img_tag.get('src') or img_tag.get('data-src')
@@ -239,12 +235,12 @@ def scrape_article_data(article_url):
                     # Add filters to avoid tiny/irrelevant images
                     width = img_tag.get('width', '0')
                     height = img_tag.get('height', '0')
-                    try: # Ensure width/height are digits if present
+                    try: # ensure width/height are digits if present
                         w, h = int(re.sub(r'\D', '', width)), int(re.sub(r'\D', '', height))
                         if w < 100 and h < 100 and (w != 0 or h != 0): # Skip small images if dimensions are known
                             continue
                     except ValueError:
-                        pass # If width/height not parsable, proceed
+                        pass # if width/height not parsable, proceed
                     
                     if any(keyword in src.lower() for keyword in ['logo', 'avatar', 'icon', 'ads', 'spinner', 'gravatar', 'pixel', 'banner/button', 'feed']):
                         continue
@@ -259,16 +255,15 @@ def scrape_article_data(article_url):
 
 
 if __name__ == '__main__':
-    # Test script for direct execution
+    # test script for direct execution
     test_url = "https://www.thebaltimorebanner.com/politics-power/national-politics/trump-librarian-congress-carla-hayden-E7CCMFF425CGXIVY3BXAMKWHSE/"
     # test_url = "https://www.thebaltimorebanner.com/culture/food-drink/suspension-ales-taproom-grand-opening-ingrid-gregg-RYB4N2B2U5EBTDO7C6NZXUHRXA/" # Another article
 
     print(f"\n--- Testing Selenium Scraper for URL: {test_url} ---")
-    # The get_or_create_driver will handle the initial login prompt
     
     try:
-        # This call ensures the driver is up and login prompt is shown if needed.
-        get_or_create_driver(headless=False) # Force non-headless for testing login
+        # this call ensures the driver is up and login prompt is shown if needed.
+        get_or_create_driver(headless=False) # force non-headless for testing login
         
         print(f"Attempting to scrape: {test_url}")
         scraped_info = scrape_article_data(test_url)
@@ -289,5 +284,5 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"An error occurred during the test: {e}")
     finally:
-        close_driver() # Close the driver when the test script finishes
+        close_driver() # close the driver when the test script finishes
     print("--- End Selenium Scraping Test ---")
