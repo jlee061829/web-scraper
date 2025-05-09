@@ -8,9 +8,6 @@ import re
 from datetime import datetime
 import time
 
-# --- Existing parsing functions (count_words, parse_banner_date) ---
-# These are assumed to be the same as in the previous correct version.
-# Make sure they are correctly defined here.
 def count_words(text):
     if not text:
         return 0
@@ -40,7 +37,7 @@ def parse_banner_date(date_text):
         except ValueError:
             continue
     return date_text
-# --- End of existing parsing functions ---
+
 
 _driver_instance = None # Global-like variable to hold the driver instance for the app's lifetime
 
@@ -57,7 +54,7 @@ def get_or_create_driver(headless=False, force_recreate=False):
     if _driver_instance is None:
         print("Initializing Selenium WebDriver...")
         chrome_options = ChromeOptions()
-        if headless: # For production or non-interactive use
+        if headless:
             chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
@@ -72,13 +69,7 @@ def get_or_create_driver(headless=False, force_recreate=False):
             if not headless: # Only prompt for login if browser is visible
                 print("Navigating to Baltimore Banner for potential login...")
                 _driver_instance.get("https://www.thebaltimorebanner.com/")
-                # Check if we are already logged in (very basic check, can be improved)
-                # For instance, look for a "My Account" or "Log Out" button.
-                # This is highly site-specific.
                 try:
-                    # Try to find an element that indicates logged-in state.
-                    # This is a placeholder. You'd need to inspect the site logged-in
-                    # to find a reliable element.
                     _driver_instance.find_element(webdriver.common.by.By.CSS_SELECTOR, 'button[aria-label*="Account"]') # Example
                     print("It seems you might already be logged in (found account button).")
                 except: # If not found, assume not logged in
@@ -91,7 +82,7 @@ def get_or_create_driver(headless=False, force_recreate=False):
         except Exception as e:
             print(f"Error initializing WebDriver: {e}")
             _driver_instance = None # Ensure it's None if init failed
-            raise  # Re-raise the exception to be caught by the caller
+            raise
     return _driver_instance
 
 
@@ -103,15 +94,13 @@ def close_driver():
         _driver_instance = None
         print("WebDriver closed.")
 
-def scrape_article_data(article_url): # Renamed from scrape_article_data_with_selenium
+def scrape_article_data(article_url):
     """
     Scrapes data from a Baltimore Banner article URL using Selenium and BeautifulSoup.
     Relies on a shared WebDriver instance managed by get_or_create_driver().
     """
     driver = None
     try:
-        # For Flask app, start non-headless to allow login.
-        # For production, you'd need automated login or a different strategy.
         driver = get_or_create_driver(headless=False)
     except Exception as e:
         return {"error": f"Could not get Selenium WebDriver: {str(e)}"}
